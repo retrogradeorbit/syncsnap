@@ -60,15 +60,11 @@ synchronised
 
 ### Bugs
 
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
+Many
 
 ## License
 
-Copyright © 2018 FIXME
+Copyright © 2018 Crispin Wellington
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
