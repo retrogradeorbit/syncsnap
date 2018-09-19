@@ -167,7 +167,7 @@
 
 (defmulti zfs-synchronise (fn [action host src dest] action))
 
-(defmethod zfs-synchronise :pull [_ host src dest]
+(defmethod zfs-synchronise :pull [_ opts host src dest]
   (println "fetching snapshot data from" host)
   (let [remote-snaps (->> (zfs-list host)
                           (sort-by :timestamp)
@@ -197,7 +197,7 @@
       (when-not (empty? remain)
         (recur (first remain) (rest remain) snap)))))
 
-(defmethod zfs-synchronise :push [_ host src dest]
+(defmethod zfs-synchronise :push [_ opts host src dest]
   (println "fetching snapshot data from" host)
   (let [remote-snaps (->> (zfs-list host)
                           (sort-by :timestamp)
@@ -231,9 +231,9 @@
         (recur (first remain) (rest remain) snap)))))
 
 (defn -main [& args]
-  (let [{:keys [action options args exit-message ok?]} (validate-args args)]
+  (let [{:keys [action opts args exit-message ok?]} (validate-args args)]
     (if exit-message
       (exit (if ok? 0 1) exit-message)
-      (apply zfs-synchronise action args))
+      (apply zfs-synchronise action opts args))
     (println "synchronised")
     (System/exit 0)))
