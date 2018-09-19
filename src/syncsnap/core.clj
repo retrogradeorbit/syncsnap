@@ -90,36 +90,48 @@
          (string/replace s #"\"" "\\\\\"")
          "\"")))
 
-(defn ssh [host opts args]
-  (let [args (-> ["ssh"
-                  (when (:identity opts) ["-i" (:identity opts)])
-                  (when (:port opts) ["-p" (str (:port opts))])
-                  host]
-                 flatten
-                 (concat args))
+(defn- build-ssh-args [opts host args]
+  (-> ["ssh"
+       (when (:identity opts) ["-i" (:identity opts)])
+       (when (:port opts) ["-p" (str (:port opts))])
+       host]
+      (->> (filter identity))
+      flatten
+      (concat args)))
+
+(defn ssh [opts host args]
+  (let [args (build-ssh-args opts host args)
         {:keys [out err exit]} (apply sh args)]
     (assert (zero? exit) (str "command failed: " args " error: " err))
     out))
 
 (defn bash-ssh
   "remember to put spaces around pipe characters or they will be quoted"
-  [host opts args]
-  (let [args (-> ["ssh"
-                  (when (:identity opts) ["-i" (:identity opts)])
-                  (when (:port opts) ["-p" (str (:port opts))])
-                  host]
-                 flatten
-                 (concat args)
-                 (->> (map quote-str)
-                      (string/join " ")))
+  [opts host args]
+  (let [args (->> (build-ssh-args opts host args)
+                  (map quote-str)
+                  (string/join " "))
+        {:keys [out err exit]} (sh "bash" "-c" args)]
+    (assert (zero? exit) (str "command failed: " args " error: " err))
+    out))
+
+(defn bash-command-pipe-to-ssh
+  "remember to put spaces around pipe characters or they will be quoted"
+  [opts host local-args remote-args]
+  (let [remote-args (->>
+                     (build-ssh-args opts host remote-args)
+                     (map quote-str))
+        local-args (->> local-args
+                        (map quote-str))
+        args (->> (concat local-args ["|"] remote-args)
+                  (string/join " "))
         {:keys [out err exit]} (sh "bash" "-c" args)]
     (assert (zero? exit) (str "command failed: " args " error: " err))
     out))
 
 (defn zfs-list
-  ([host]
-   (-> (sh "ssh" host "zfs" "list" "-t" "snapshot" "-o" "name,creation,compression,dedup")
-       :out
+  ([opts host]
+   (-> (ssh opts host ["zfs" "list" "-t" "snapshot" "-o" "name,creation,compression,dedup"])
        (string/split #"\n")
        next
        (->> (map #(string/split % #"\s+"))
