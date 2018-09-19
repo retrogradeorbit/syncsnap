@@ -90,6 +90,17 @@
          (string/replace s #"\"" "\\\\\"")
          "\"")))
 
+(defn ssh [host opts args]
+  (let [args (-> ["ssh"
+                  (when (:identity opts) ["-i" (:identity opts)])
+                  (when (:port opts) ["-p" (str (:port opts))])
+                  host]
+                 flatten
+                 (concat args))
+        {:keys [out err exit]} (apply sh args)]
+    (assert (zero? exit) (str "command failed: " args " error: " err))
+    out))
+
 (defn zfs-list
   ([host]
    (-> (sh "ssh" host "zfs" "list" "-t" "snapshot" "-o" "name,creation,compression,dedup")
