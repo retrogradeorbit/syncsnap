@@ -56,10 +56,10 @@
 
       ;; custom validation on arguments
       (:pull options)
-      {:action :pull :args arguments}
+      {:action :pull :args arguments :opts options}
 
       (:push options)
-      {:action :push :args arguments}
+      {:action :push :args arguments :opts options}
 
       :else ; failed custom validation => exit with usage summary
       {:exit-message (usage summary)})))
