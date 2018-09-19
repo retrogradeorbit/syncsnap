@@ -83,6 +83,13 @@
 (defn make-tag [dataset tag]
   (str dataset "@" tag))
 
+(defn quote-str [s]
+  (if (#{"|" ">" "<"} s)
+    s
+    (str "\""
+         (string/replace s #"\"" "\\\\\"")
+         "\"")))
+
 (defn zfs-list
   ([host]
    (-> (sh "ssh" host "zfs" "list" "-t" "snapshot" "-o" "name,creation,compression,dedup")
