@@ -2,14 +2,22 @@
   (:require [clojure.string :as string]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.shell :refer [sh]]
+            [clojure.java.io :as io]
             [clj-time.core :as t]
             [clj-time.format :as f])
   (:gen-class))
 
 (def cli-options
   [["-h" "--help"]
-   ["-p" "--pull" "Pull snapshots from remote host to localhost"]
-   ["-P" "--push" "Push snapshots from localhost to remote host"]
+   ["-i" "--identity PRIVATE_KEY_FILE" "use the specified ssh private key to connect"
+    :validate [#(.exists (io/file %)) "Key file does not exist"]]
+   ["-p" "--port PORT" "connect to ssh on the specified port"
+    :default 22
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]
+    ]
+   ["-l" "--pull" "Pull snapshots from remote host to localhost"]
+   ["-s" "--push" "Push snapshots from localhost to remote host"]
    #_ ["-s"  "--skip-gaps" "If a more recent snapshot is in the destination, do not transfer the snapshot"]
    #_ ["-D"  "--delete-missing" "If a snapshot is in the destination and is missing on the source, delete it from the destination"]
    #_ [nil  "--poll" "Keep running and continually poll the machines for new snapshots"]
