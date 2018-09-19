@@ -22,8 +22,10 @@ Run syncsnap:
 
     Options:
       -h, --help
-      -p, --pull  Pull snapshots from remote host to localhost
-      -P, --push  Push snapshots from localhost to remote host
+      -i, --identity PRIVATE_KEY_FILE      use the specified ssh private key to connect
+      -p, --port PORT                  22  connect to ssh on the specified port
+      -l, --pull                           Pull snapshots from remote host to localhost
+      -s, --push                           Push snapshots from localhost to remote host
 
     Please refer to the manual page for more information.
 
