@@ -146,42 +146,39 @@
             (map line-to-hash)
             (into [])))))
 
-(defmulti zfs-transfer (fn [direction src-host src dest-host dest tag-1 tag-2] direction))
+(defmulti zfs-transfer (fn [direction opts src-host src dest-host dest tag-1 tag-2] direction))
 
-(defmethod zfs-transfer :pull [_ src-host src _ dest tag-1 tag-2]
+(defmethod zfs-transfer :pull [_ opts src-host src _ dest tag-1 tag-2]
   (if tag-1
     ;; incremental
-    (sh "bash" "-c"
-        (str "ssh " src-host " zfs send -i " (make-tag src tag-1) " " (make-tag src tag-2)
-             " | zfs recv " dest))
+    (bash-ssh opts src-host ["zfs" "send" "-i"
+                             (make-tag src tag-1)
+                             (make-tag src tag-2)
+                             "|" "zfs" "recv" "-F" dest])
     ;; full snapshot
-    (sh "bash" "-c"
-        (str "ssh " src-host " zfs send " (make-tag src tag-2)
-             " | zfs recv " dest)))
-  )
+    (bash-ssh opts src-host ["zfs" "send"
+                             (make-tag src tag-2)
+                             "|" "zfs" "recv" "-F" dest])))
 
-(defmethod zfs-transfer :push [_ src-host src dest-host dest tag-1 tag-2]
+(defmethod zfs-transfer :push [_ opts src-host src dest-host dest tag-1 tag-2]
   (if tag-1
     ;; incremental
-    (do (println (str "zfs send -i " (make-tag src tag-1) " " (make-tag src tag-2)
-               " | ssh " dest-host " zfs recv " dest ;;"@" (make-tag dest tag-2)
-               ))
-      (sh "bash" "-c"
-          (str "zfs send -i " (make-tag src tag-1) " " (make-tag src tag-2)
-               " | ssh " dest-host " zfs recv -F " dest ;;"@" (make-tag dest tag-2)
-               )))
+    (bash-command-pipe-to-ssh opts src-host
+                              ["zfs" "send" "-i"
+                               (make-tag src tag-1)
+                               (make-tag src tag-2)]
+                              ["zfs" "recv" "-F" dest])
     ;; full snapshot
-    (sh "bash" "-c"
-        (str "zfs send " (make-tag src tag-2)
-             " | ssh " dest-host " zfs recv -F " dest ;;"@" (make-tag dest tag-2)
-             ))))
+    (bash-command-pipe-to-ssh opts src-host
+                              ["zfs" "send"
+                               (make-tag src tag-2)]
+                              ["zfs" "recv" "-F" dest])))
 
-
-(defmulti zfs-synchronise (fn [action host src dest] action))
+(defmulti zfs-synchronise (fn [action opts host src dest] action))
 
 (defmethod zfs-synchronise :pull [_ opts host src dest]
   (println "fetching snapshot data from" host)
-  (let [remote-snaps (->> (zfs-list host)
+  (let [remote-snaps (->> (zfs-list opts host)
                           (sort-by :timestamp)
                           (filter #(-> % :dataset (= src))))
         local-snaps (->> (zfs-list)
@@ -196,22 +193,16 @@
       (when-not (local-snap-tags tag)
         (print "transfering snapshot" (make-tag src tag) "... ")
         (flush)
-        (let [{:keys [out exit err] :as res}
-              (if last-snap
-                (zfs-transfer :pull host src nil dest (:tag last-snap) tag)
-                (zfs-transfer :pull host src nil dest nil tag))]
-          (if (zero? exit)
-            (println "ok")
-            (do
-              (println "error! " err)
-              (System/exit 1)))
-          ))
+        (if last-snap
+                (zfs-transfer :pull opts host src nil dest (:tag last-snap) tag)
+                (zfs-transfer :pull opts host src nil dest nil tag))
+        (println "ok"))
       (when-not (empty? remain)
         (recur (first remain) (rest remain) snap)))))
 
 (defmethod zfs-synchronise :push [_ opts host src dest]
   (println "fetching snapshot data from" host)
-  (let [remote-snaps (->> (zfs-list host)
+  (let [remote-snaps (->> (zfs-list opts host)
                           (sort-by :timestamp)
                           (filter #(-> % :dataset (= dest))))
         remote-snap-tags (->> remote-snaps
@@ -231,8 +222,8 @@
         (flush)
         (let [{:keys [out exit err] :as res}
               (if last-snap
-                (zfs-transfer :push nil src host dest (:tag last-snap) tag)
-                (zfs-transfer :push nil src host dest nil tag))]
+                (zfs-transfer :push opts nil src host dest (:tag last-snap) tag)
+                (zfs-transfer :push opts nil src host dest nil tag))]
           (if (zero? exit)
             (println "ok")
             (do
